@@ -1,0 +1,101 @@
+# https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis.derived.surface.html
+# fileurl="ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis.derived/surface/air.mon.mean.nc"
+# download.file(fileurl,destfile="./data/air_mon_mean.nc")
+
+# library(ncdf4)
+# ncin=nc_open(fileloc)
+# library(RNetCDF)
+# ncin=open.nc(fileloc)
+
+library(rhdf5)
+fileloc="./data/air_mon_mean.nc"
+h5ls(fileloc)
+# group name       otype dclass            dim
+# 0     /  air H5I_DATASET  FLOAT 144 x 73 x 830
+# 1     /  lat H5I_DATASET  FLOAT             73
+# 2     /  lon H5I_DATASET  FLOAT            144
+# 3     / time H5I_DATASET  FLOAT            830
+
+LON=h5read(fileloc,"lon")
+LAT=h5read(fileloc,"lat")
+X=h5read(fileloc,"air") # lon*lat*time unit degC
+
+LAT=rev(LAT)
+LON=c(LON[73:144]-360,LON[1:72])
+X=X[, length(LAT):1, ]
+X=X[c(73:144,1:72),,]
+X=X[,,1:(dim(X)[3]-2)] # 1948-2016
+
+X_mon_mean=X[,,1:12]
+for(i in 0:11){
+  X0=X[,,(1:dim(X)[3])%%12==i]
+  X_mon_mean[,,i+1]=apply(X0,c(1,2),mean)
+}
+
+for(i in 1:dim(X)[3]){
+  X[,,i]=X[,,i]-X_mon_mean[,,(i%%12)+1]
+}
+
+
+X1=X[,,1]
+#X1=apply(X,c(1,2),mean)
+image(LON,LAT,X1)
+library(maptools)
+data(wrld_simpl)
+plot(wrld_simpl,add=TRUE)
+
+
+#
+
+x1=X[which(LON==-25),which(LAT==37.5),]
+x2=X[which(LON==-17.5),which(LAT==65),]
+
+
+x1=X[which(LON==-120),which(LAT==0),]
+x2=X[which(LON==-70),which(LAT==45),]
+plot(x1,type="l",col="blue")
+points(x2,type="l",col="red")
+
+
+plot(density(x1),col="blue")
+lines(density(x2),col="red")
+
+plot(x1,x2)
+cor(x1,x2)
+
+# plot(X_mon_mean[100,30,],col="blue",ylim=c(min(X_mon_mean),max(X_mon_mean)))
+# for(i in 100:144){
+#   for(j in 30:36){
+#     lines(X_mon_mean[i,j,],col=rgb((i+j)/250,0,0))
+#   }
+# }
+# 
+# 
+# 
+# plot(density(X[1,1,]),col="white",ylim=c(0,1))
+# for(i in 1:144){
+#   lines(density(X[i,30,]),col=rgb((i)/144,0,0))
+# }
+
+
+#
+D=matrix(1,144*73,144*73)
+for(i1 in 1:length(LON)){
+  for(j1 in 1:length(LAT)){
+    for(i2 in 1:length(LON)){
+      for(j2 in 1:length(LAT)){
+        i=73*(i1-1)+j1
+        j=73*(i2-1)+j2
+        x=X[i1,j1,]
+        y=X[i2,j2,]
+        if(i>j){
+          D[i,j]=D[j,i]=cor(x,y)
+        }
+        
+      }
+    }
+  }
+}
+  
+
+save(D,file="air_mon_mean_cor.RData")

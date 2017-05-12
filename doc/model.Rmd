@@ -1,0 +1,263 @@
+---
+title: "Covariance Model for Teleconnection"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+# 1. Covariance Model
+
+## 1.1 nearest neighbour and teleconnection
+
+```{r,include=FALSE}
+library(MASS)
+library(Matrix)
+p=30
+Ip=diag(rep(1,p))
+V=matrix(0,p,3)
+r=0.5
+s=c(r,1,r)
+p1=5
+V[(p1-1):(p1+1),1]=s
+p1=27
+V[(p1-1):(p1+1),1]=s
+p1=7
+V[(p1-1):(p1+1),3]=s
+p1=9
+V[(p1-1):(p1+1),2]=s
+
+
+S=V%*%t(V)
+```
+
+Consider the matrix $V$:
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+print(V)
+image(as(V, "dgCMatrix"),main="V")
+```
+
+Let the covariance matrix be $$S=VV^\top+I$$
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(V%*%t(V)+Ip, "dgCMatrix"),main="S=VV'+I")
+```
+
+
+Meanwhile the inverse of $S$ is
+
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(solve(S+Ip), "dgCMatrix"),main="S inverse")
+```
+
+
+## 1.2 link with factor model
+
+
+$$
+X=\begin{bmatrix}
+    X_{1}   \\
+    X_{2}    \\
+    \vdots \\
+    X_{p}
+\end{bmatrix},
+F=\begin{bmatrix}
+    f_{1}   \\
+    f_{2}    \\
+    \vdots \\
+    f_{m}
+\end{bmatrix}
+$$
+$$X=\mu+AF+\epsilon$$
+$$\Sigma=cov(X)=AA^\top+I$$
+
+$A$ is not unique. Change the model a little bit, let $$V=[v_1,\cdots,v_r]$$, and $$\Lambda=diag(\lambda_1,\cdots,\lambda_r)$$. Then we have
+
+$$\Sigma=V\Lambda V^\top+I=\sum_{i=1}^{r}\lambda_iv_iv_i^\top+I$$.
+
+Note that each column of $V$: coefficients for certain factor for different features $X$
+
+We have:
+
+- Suppose: features $X_i$ is indexed by $i$, associated with the distance
+- neighbourhood effect: row vector similarity, i.e. the more similar, the more correlated, 
+- teleconnection effect: remote $i$ and $j$ are driven by the same factor, i.e. the column of $V$ (the common factor) has two separate (remote) peaks
+
+Possible model assumption:
+
+- If column of $V$, i.e. $v_i$ is **single peaked**, then it can be used to model neighbourhood effect
+- If $v_i$ is **double peaked**, then it can be used to model teleconnection
+- We can use kernel function to model the peak.
+- We can assume the support of the kernel (or the peak) is sparse, since not all the features can be related to the same factor.
+
+For example,
+
+- Let $K(\cdot)$ be a kernel function
+- $v_i$ has peak center $p_i$
+- $v_i=K(\frac{i-p_i}{h})$, where $h$ is the bandwidth
+- We can assume one teleconnection, for example, $v_1=K(\frac{i-p^{(1)}_i}{h})+K(\frac{i-p^{(2)}_i}{h})$
+- $\Sigma=V\Lambda V^\top+I=\sum_{i=1}^{r}\lambda_iv_iv_i^\top+I$
+
+In this way,$\Sigma$ is under a spiked covariance model with different sparsity structure of the spikes ($v_i$): **the covariance is the sum of many single peaked and one double peaked vectors**. 
+
+# 2. Different Sparsity
+
+## 2.1 group sparsity
+
+```{r,include=FALSE}
+p=30
+Ip=diag(rep(1,p))
+V=matrix(0,p,3)
+p1=5
+V[p1,]=rnorm(3)
+p1=27
+V[p1,]=rnorm(3)
+p1=7
+V[p1,]=rnorm(3)
+p1=9
+V[p1,]=rnorm(3)
+
+
+S=V%*%t(V)
+```
+
+
+Joint sparse for each row of $V$:
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+print(V)
+image(as(V, "dgCMatrix"),main="V")
+```
+
+Let the covariance matrix be $$S=VV^\top+I$$
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(V%*%t(V)+Ip, "dgCMatrix"),main="S=VV'+I")
+```
+
+
+Meanwhile the inverse of $S$ is
+
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(solve(S+Ip), "dgCMatrix"),main="S inverse")
+```
+
+# 3. Estimation 
+
+```{r,include=FALSE}
+tridiag <- function(upper, lower, main){
+    out <- matrix(0,length(main),length(main))
+    diag(out) <- main
+    indx <- seq.int(length(upper))
+    out[cbind(indx+1,indx)] <- lower
+    out[cbind(indx,indx+1)] <- upper
+    return(out)
+}
+```
+
+
+```{r}
+p=15
+r=0.5
+V=matrix(0,p,p)
+for(i in 1:p){
+  for(j in 1:p){
+    if((i==j) | (i-j)==2){
+      V[i,j]=r
+    }else if(i-j==1){
+      V[i,j]=1
+    }
+  }
+}
+
+
+V[10:12,1]=c(r,1,r)
+
+image(as(V, "dgCMatrix"),main="V")
+S=V%*%t(V)+diag(rep(1,p))
+image(as(S, "dgCMatrix"),main="S")
+```
+
+
+```{r,include=FALSE}
+p=31
+Ip=diag(rep(1,p))
+V=matrix(0,p,29)
+r=0.5
+s=c(r,1,r)
+
+for(i in 1:29){
+  V[(i):(i+2),i]=s
+}
+
+p1=26
+V[(p1-1):(p1+1),3]=s
+
+S=V%*%t(V)+Ip
+
+n=100
+data = mvrnorm(n, mu = rep(0,p), Sigma = S)
+
+```
+
+
+```{r,include=FALSE}
+M=tridiag(rep(1,p-1),rep(1,p-1),rep(1,p))
+Shat=cov(data)
+Stap=Shat*(abs(Shat)>0.6)
+Stb=Shat*((abs(Shat)>0.6) | M)
+```
+
+```{r, include=F}
+for(i in 2:(p-3)){
+  for(j in (i+2):(p-1)){
+    M0=Shat[(i-1):(i+1),(j-1):(j+1)]
+    M[i,j]=M[j,i]=base::norm(M0,"F")>1.2
+  }
+}
+Str=Shat*M
+```
+
+
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(V, "dgCMatrix"),main="V")
+```
+
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(S, "dgCMatrix"),main="S=VV'+I")
+```
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(Shat, "dgCMatrix"),main="Sample Covariance")
+```
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(Stap, "dgCMatrix"),main="Threshoulding")
+```
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(Stb, "dgCMatrix"),main="Threshoulding and banding")
+```
+
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(Str, "dgCMatrix"),main="Block Threshoulding and banding")
+```
+
+
+
+```{r, fig.width=4, fig.height=4, echo=FALSE}
+image(as(solve(S), "dgCMatrix"),main="S inverse")
+```
+
+
+
+```{r}
+base::norm(S-Shat,"F")
+base::norm(S-Stap,"F")
+base::norm(S-Stb,"F")
+base::norm(S-Str,"F")
+```
+

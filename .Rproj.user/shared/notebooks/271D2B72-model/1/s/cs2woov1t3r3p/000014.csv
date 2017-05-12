@@ -1,0 +1,2 @@
+"0","S=V%*%t(V)+diag(rep(1,p))"
+"0","image(as(S, ""dgCMatrix""),main=""S"")"

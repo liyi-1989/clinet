@@ -1,0 +1,4 @@
+"0","M=tridiag(rep(1,p-1),rep(1,p-1),rep(1,p))"
+"0","Shat=cov(data)"
+"0","Stap=Shat*(abs(Shat)>0.6)"
+"0","Stb=Shat*((abs(Shat)>0.6) | M)"
