@@ -1,8 +1,0 @@
-"0","tridiag <- function(upper, lower, main){"
-"0","    out <- matrix(0,length(main),length(main))"
-"0","    diag(out) <- main"
-"0","    indx <- seq.int(length(upper))"
-"0","    out[cbind(indx+1,indx)] <- lower"
-"0","    out[cbind(indx,indx+1)] <- upper"
-"0","    return(out)"
-"0","}"

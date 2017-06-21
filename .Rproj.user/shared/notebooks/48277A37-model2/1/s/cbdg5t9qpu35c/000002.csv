@@ -1,7 +1,0 @@
-"0","# True model (WITH teleconnection)"
-"0","p=100; n=1000; r=0.9; s=0.5; tele=1; sigma=1"
-"0","Ip=diag(rep(1,p))"
-"0","V=genV(p=p,r=r,s=s,tele=tele)"
-"0","S=V%*%t(V)+diag(rep(1,p))"
-"0","M=(S==0)"
-"0","printM(S)"
