@@ -1,3 +1,5 @@
+###################### 1. GCM data ######################
+
 # https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis.derived.surface.html
 # fileurl="ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis.derived/surface/air.mon.mean.nc"
 # download.file(fileurl,destfile="./data/air_mon_mean.nc")
@@ -19,24 +21,38 @@ h5ls(fileloc)
 LON=h5read(fileloc,"lon")
 LAT=h5read(fileloc,"lat")
 X=h5read(fileloc,"air") # lon*lat*time unit degC
+NLON=length(LON)
+NLAT=length(LAT)
 
 LAT=rev(LAT)
-LON=c(LON[73:144]-360,LON[1:72])
+LON=c(LON[(NLON/2+1):NLON]-360,LON[1:(NLON/2)])
 X=X[, length(LAT):1, ]
-X=X[c(73:144,1:72),,]
+X=X[c((NLON/2+1):NLON,1:(NLON/2)),,]
 X=X[,,1:(dim(X)[3]-2)] # 1948-2016
 
+# remove monthly mean
 X_mon_mean=X[,,1:12]
 for(i in 0:11){
   X0=X[,,(1:dim(X)[3])%%12==i]
-  X_mon_mean[,,i+1]=apply(X0,c(1,2),mean)
+  X_mon_mean[,,i+1]=apply(X0,c(1,2),mean) # [12,1,2,3,...,11]
 }
 
 for(i in 1:dim(X)[3]){
   X[,,i]=X[,,i]-X_mon_mean[,,(i%%12)+1]
 }
 
+############### 1.1 Get subsample ################
+idsellon=2*(1:(NLON/2))-1
+idsellat=2*(1:(NLAT/2))-1
+LON=LON[idsellon]
+LAT=LAT[idsellat]
+NLON=length(LON)
+NLAT=length(LAT)
+X=X[idsellon,idsellat,]
+save(LON,LAT,NLON,NLAT,X,file="./data/air_mon_mean_mon_mean_removed_sub.RData")
 
+############### 1.2 EDA ################
+# Plots
 X1=X[,,1]
 #X1=apply(X,c(1,2),mean)
 image(LON,LAT,X1)
@@ -99,3 +115,7 @@ for(i1 in 1:length(LON)){
   
 
 save(D,file="air_mon_mean_cor.RData")
+
+
+###################### 2. OBS data ######################
+
