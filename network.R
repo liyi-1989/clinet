@@ -58,27 +58,89 @@ nn_ind=function(NLON,NLAT,t1,t2){
 
 
 ############ 3. Network Analysis of the features ##############
-load("cor_rcd_matrix.RData")
+# Magic number: (abs(S1)>0.55 ~ S2>0.25373 ~133points
+# Magic number: (abs(S1)>0.5565 ~ S2>0.25795 ~133points
+# Magic number: (abs(S1)>0.597 ~ S2>0.284 ~10points
+load("./data/cor_rcd_matrix.RData")
 library(igraph)
 #A=matrix(c(2,0,3,1),2,2)
 thres=5
 S0=nn_ind(NLON,NLAT,round(thres*NLON/NLAT),thres)
-net=graph_from_adjacency_matrix((abs(S1)>0.5)*(!S0))
-layout=layout.circle(net)
-plot(net, layout=layout, vertex.size=0.1,vertex.label=NA, vertex.frame.color="blue",vertex.color="blue",
+net1=graph_from_adjacency_matrix((abs(S1)>0.5565)*(!S0),mode = "undirected")
+layout=layout.circle(net1)
+plot(net1, layout=layout, vertex.size=0.1,vertex.label=NA, vertex.frame.color="blue",vertex.color="blue",
      edge.arrow.size=0,edge.color=rgb(0.5,0.5,0.5,alpha = 0.1))
 plot(X1[,232],X1[,778])
 # https://www.darrinward.com/lat-long/?id=3104911
 thres=5
-S0=nn_ind(NLON,NLAT,round(thres*NLON/NLAT),thres)
-net=graph_from_adjacency_matrix((S2>0.235)*(!S0))
-layout=layout.circle(net)
-plot(net, layout=layout, vertex.size=0.01,vertex.label=NA, 
+#S0=nn_ind(NLON,NLAT,round(thres*NLON/NLAT),thres)
+net2=graph_from_adjacency_matrix((S2>0.25795)*(!S0),mode = "undirected")
+layout=layout.circle(net2)
+plot(net2, layout=layout, vertex.size=0.01,vertex.label=NA, 
      vertex.frame.color=rgb(0,0,1,alpha = 0.1),vertex.color=rgb(0,0,1,alpha = 0.1),
      edge.arrow.size=0,edge.color=rgb(0.5,0.5,0.5,alpha = 0.1))
 
 
+el1=as_edgelist(net1)
+el2=as_edgelist(net2)
+dim(el1)
+dim(el2)
+el1
+el2
+
+cbind(el1,el2)
+
+n1=graph_from_edgelist(el1)
+n2=graph_from_edgelist(el2)
+layout=layout.circle(n1)
+layout=layout.circle(n2)
+plot(n1, layout=layout,vertex.size=0.01,edge.arrow.size=0)
+plot(n2, layout=layout,vertex.size=0.01,edge.arrow.size=0)
+
+
+par(mfrow=c(1,2))
+plot(net1, layout=layout, vertex.size=0.1,vertex.label=NA, vertex.frame.color="blue",vertex.color="blue",
+     edge.arrow.size=0,edge.color=rgb(0.5,0.5,0.5,alpha = 0.1))
+plot(net2, layout=layout, vertex.size=0.01,vertex.label=NA, 
+     vertex.frame.color=rgb(0,0,1,alpha = 0.1),vertex.color=rgb(0,0,1,alpha = 0.1),
+     edge.arrow.size=0,edge.color=rgb(0.5,0.5,0.5,alpha = 0.1))
+
 plot(X1[,805],X1[,2467])
+
+plot(X1[,859],X1[,1518])
+plot(X[24,31,],X[43,6,])
+plot(X1[,859],X1[,1554])
+
+
+plot(X1[,805],X1[,2431])
+plot(X[23,13,],X[68,19,])
+
+library("maps")
+library("geosphere")
+
+png("cor.png")
+par(mfrow=c(1,1))
+
+map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfv[unique(c(el1[,1],el1[,2])),4],y=dfv[unique(c(el1[,1],el1[,2])),5],col="orange",pch=19)
+for(i in 1:nrow(el1)){
+  node1=dfv[dfv[,1]==el1[i,1],]
+  node2=dfv[dfv[,1]==el1[i,2],]
+  arc=gcIntermediate(c(node1[4],node1[5]),c(node2[4],node2[5]),n=1000,addStartEnd = T)
+  lines(arc,col="yellow")
+}
+dev.off()
+
+png("rcd.png")
+map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfv[unique(c(el2[,1],el2[,2])),4],y=dfv[unique(c(el2[,1],el2[,2])),5],col="orange",pch=19)
+for(i in 1:nrow(el1)){
+  node1=dfv[dfv[,1]==el2[i,1],]
+  node2=dfv[dfv[,1]==el2[i,2],]
+  arc=gcIntermediate(c(node1[4],node1[5]),c(node2[4],node2[5]),n=1000,addStartEnd = F,breakAtDateLine=F)
+  lines(arc,col="yellow")
+}
+dev.off()
 #######################################################################
 
 source("http://michael.hahsler.net/SMU/ScientificCompR/code/map.R")
