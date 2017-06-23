@@ -33,77 +33,50 @@ for(i in 1:p){
 
 save(S1,S2,file="cor_rcd_matrix.RData")
 
-nn_ind=function(NLON,NLAT,t1,t2){
-  S0=matrix(0,NLON*NLAT,NLON*NLAT)
-  l1=0
-  for(i1 in 1:NLON){
-    for(j1 in 1:NLAT){
-      l1=l1+1
-      l2=0
-      for(i2 in 1:NLON){
-        for(j2 in 1:NLAT){
-          l2=l2+1
-          d1=abs(i1-i2)
-          if((ifelse(d1<(NLON/2),d1,NLON-d1)<=t1)|(abs(j1-j2)<=t2)){
-            S0[l1,l2]=1
-          }
-        }
-      }
-    }
-  }
-  
-  return(S0)
-}
-
-
-
 ############ 3. Network Analysis of the features ##############
+# thres=5
 # Magic number: (abs(S1)>0.55 ~ S2>0.25373 ~133points
-# Magic number: (abs(S1)>0.5565 ~ S2>0.25795 ~133points
+# Magic number: (abs(S1)>0.5565 ~ S2>0.25795 ~100points
 # Magic number: (abs(S1)>0.597 ~ S2>0.284 ~10points
+# Magic number: (abs(S1)>0.4219 ~ S2>0.19838 ~1000points
 load("./data/cor_rcd_matrix.RData")
 library(igraph)
-#A=matrix(c(2,0,3,1),2,2)
+library("maps")
+library("geosphere")
+source('utils_network.R')
+###### 3.1 Define the local nearest neighbour ######
 thres=5
-S0=nn_ind(NLON,NLAT,round(thres*NLON/NLAT),thres)
+S0=nn_ind(NLON,NLAT,round(thres*NLON/NLAT),thres) # nearest neighbour indicator matrix
+
+###### 3.2 Create threshoulded network for analysis ######
+# threshoulded network
 net1=graph_from_adjacency_matrix((abs(S1)>0.5565)*(!S0),mode = "undirected")
-layout=layout.circle(net1)
-plot(net1, layout=layout, vertex.size=0.1,vertex.label=NA, vertex.frame.color="blue",vertex.color="blue",
-     edge.arrow.size=0,edge.color=rgb(0.5,0.5,0.5,alpha = 0.1))
+net2=graph_from_adjacency_matrix((S2>0.25795)*(!S0),mode = "undirected")
+# threshoulded edge
+dfe1=as_edgelist(net1)
+dfe2=as_edgelist(net2)
+
+###### 3.3 Visualization ######
+# plot as network
+par(mfrow=c(1,2))
+plot_circle(net1)
+plot_circle(net2)
+# plot on map
+plot_arc(dfv,dfe1)
+plot_arc(dfv,dfe2)
+
+png("cor.png")
+par(mfrow=c(1,1))
+plot_arc(dfv,dfe1)
+dev.off()
+
+png("rcd.png")
+plot_arc(dfv,dfe2)
+dev.off()
+
+#----------------------
 plot(X1[,232],X1[,778])
 # https://www.darrinward.com/lat-long/?id=3104911
-thres=5
-#S0=nn_ind(NLON,NLAT,round(thres*NLON/NLAT),thres)
-net2=graph_from_adjacency_matrix((S2>0.25795)*(!S0),mode = "undirected")
-layout=layout.circle(net2)
-plot(net2, layout=layout, vertex.size=0.01,vertex.label=NA, 
-     vertex.frame.color=rgb(0,0,1,alpha = 0.1),vertex.color=rgb(0,0,1,alpha = 0.1),
-     edge.arrow.size=0,edge.color=rgb(0.5,0.5,0.5,alpha = 0.1))
-
-
-el1=as_edgelist(net1)
-el2=as_edgelist(net2)
-dim(el1)
-dim(el2)
-el1
-el2
-
-cbind(el1,el2)
-
-n1=graph_from_edgelist(el1)
-n2=graph_from_edgelist(el2)
-layout=layout.circle(n1)
-layout=layout.circle(n2)
-plot(n1, layout=layout,vertex.size=0.01,edge.arrow.size=0)
-plot(n2, layout=layout,vertex.size=0.01,edge.arrow.size=0)
-
-
-par(mfrow=c(1,2))
-plot(net1, layout=layout, vertex.size=0.1,vertex.label=NA, vertex.frame.color="blue",vertex.color="blue",
-     edge.arrow.size=0,edge.color=rgb(0.5,0.5,0.5,alpha = 0.1))
-plot(net2, layout=layout, vertex.size=0.01,vertex.label=NA, 
-     vertex.frame.color=rgb(0,0,1,alpha = 0.1),vertex.color=rgb(0,0,1,alpha = 0.1),
-     edge.arrow.size=0,edge.color=rgb(0.5,0.5,0.5,alpha = 0.1))
 
 plot(X1[,805],X1[,2467])
 
@@ -115,41 +88,84 @@ plot(X1[,859],X1[,1554])
 plot(X1[,805],X1[,2431])
 plot(X[23,13,],X[68,19,])
 
-library("maps")
-library("geosphere")
+###### 3.4 Statistics of the Medium Sparse(1000) Network ######
+Net1=graph_from_adjacency_matrix((abs(S1)>0.4219)*(!S0),mode = "undirected")
+Net2=graph_from_adjacency_matrix((S2>0.19838)*(!S0),mode = "undirected")
+Dfe1=as_edgelist(Net1)
+Dfe2=as_edgelist(Net2)
+par(mfrow=c(1,2))
+plot_circle(Net1)
+plot_circle(Net2)
 
-png("cor.png")
-par(mfrow=c(1,1))
+# Degree Distribution 
+plot(density(degree(Net1)))
+lines(density(degree(Net2)),col="red")
+
+# Betweeness 
+B1=betweenness(Net1)
+EB1=edge.betweenness(Net1)
+B2=betweenness(Net2)
+EB2=edge.betweenness(Net2)
+
+plot(density(EB1))
+lines(density(EB2),col="red")
+
+# Community
+EBC1 = edge.betweenness.community(Net1)
+
+#member <- community.to.membership(g, eb$merges, step=nrow(eb$merges)-10L+1L)
+
+member=membership(EBC1)
+
+plot(Net1,
+     vertex.color= rainbow(10, .8, .8, alpha=.8)[member+2],
+     vertex.size=0.1, layout=layout,  vertex.label=NA,
+     edge.arrow.size=0)
+
+ec <- evcent(Net1)$vector
+plot(Net1, layout=layout, vertex.size=map(ec, c(1,20)), vertex.label=NA, edge.arrow.size=.2)
+
+
+############ 4. Clustering Analysis of the features ##############
+
+D1=1-abs(S1)
+D2=1-S2
+
+C1=hclust(as.dist(D1))
+C2=hclust(as.dist(D2))
+
+CM1=cutree(C1, k=5) # clustering member
+CM2=cutree(C2, k=5) # clustering member
+
+length(unique(CM1))
+length(unique(CM2))
+
+dfv1=cbind(dfv,CM1)
+dfv2=cbind(dfv,CM2)
+
+par(mfrow=c(2,1))
+map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfv1[,4],y=dfv1[,5],col=dfv1[,6],pch=19,cex=0.5)
 
 map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
-points(x=dfv[unique(c(el1[,1],el1[,2])),4],y=dfv[unique(c(el1[,1],el1[,2])),5],col="orange",pch=19)
-for(i in 1:nrow(el1)){
-  node1=dfv[dfv[,1]==el1[i,1],]
-  node2=dfv[dfv[,1]==el1[i,2],]
-  arc=gcIntermediate(c(node1[4],node1[5]),c(node2[4],node2[5]),n=1000,addStartEnd = T)
-  lines(arc,col="yellow")
-}
-dev.off()
+points(x=dfv2[,4],y=dfv2[,5],col=dfv2[,6],pch=19,cex=0.5)
 
-png("rcd.png")
-map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
-points(x=dfv[unique(c(el2[,1],el2[,2])),4],y=dfv[unique(c(el2[,1],el2[,2])),5],col="orange",pch=19)
-for(i in 1:nrow(el1)){
-  node1=dfv[dfv[,1]==el2[i,1],]
-  node2=dfv[dfv[,1]==el2[i,2],]
-  arc=gcIntermediate(c(node1[4],node1[5]),c(node2[4],node2[5]),n=1000,addStartEnd = F,breakAtDateLine=F)
-  lines(arc,col="yellow")
-}
-dev.off()
+# given features X1, we have the cluster information of the features in dfvi
+# when doing prediction, we can use representation of the clusters to do dimensionality reduction
+
+
+
+
+
 #######################################################################
 
 source("http://michael.hahsler.net/SMU/ScientificCompR/code/map.R")
 
 g <- barabasi.game(1000, power=1)
-layout <- layout_nicely(net)
-layout <- layout_with_mds(net)
+layout <- layout_nicely(Net1)
+layout <- layout_with_mds(Net1)
 layout <- layout.fruchterman.reingold(net)
-layout <- layout.sphere(g)
+layout <- layout.sphere(Net1)
 layout <- layout.circle(g)
 plot(g, layout=layout, vertex.size=2,
      vertex.label=NA, edge.arrow.size=.2)
