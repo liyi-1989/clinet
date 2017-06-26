@@ -118,4 +118,39 @@ save(D,file="air_mon_mean_cor.RData")
 
 
 ###################### 2. OBS data ######################
+############### 2.1 Daily to Monthly with CDO ###############
+# cannot run in windows, since cdo is a linux command tool
+for(i in 1979:2016){
+  cat("CDO: year",i,"...\n")
+  cmd=paste0("cdo -monavg ","tmmx_",i,".nc monavg_tmmx_",i,".nc")
+  system(cmd)
+  cmd=paste0("cdo -monavg ","tmmn_",i,".nc monavg_tmmn_",i,".nc")
+  system(cmd)
+}
+
+############### 2.2 Load Monthly data ###############
+library(RNetCDF)
+library(abind)
+# lon: 1386
+# lat: 585
+# day: 12
+# air_temperature: (lat, lon, day)
+x=NULL
+for(i in 1979:2016){
+  fileloc=paste0("D:/works/obs_data_mon_avg/monavg_tmmx_",i,".nc")
+  nc=open.nc(fileloc) # print.nc(nc)
+  x=abind(x,aperm(var.get.nc(nc, "air_temperature"),c(2,1,3)),along=3)
+  
+}
+lon=var.get.nc(nc, "lon")
+lat=var.get.nc(nc, "lat")
+lat=rev(lat)
+nlon=length(lon)
+nlat=length(lat)
+
+
+
+
+
+
 
