@@ -134,8 +134,8 @@ D2=1-S2
 C1=hclust(as.dist(D1))
 C2=hclust(as.dist(D2))
 
-CM1=cutree(C1, k=5) # clustering member
-CM2=cutree(C2, k=5) # clustering member
+CM1=cutree(C1, k=500) # clustering member
+CM2=cutree(C2, k=500) # clustering member
 
 length(unique(CM1))
 length(unique(CM2))
@@ -153,8 +153,58 @@ points(x=dfv2[,4],y=dfv2[,5],col=dfv2[,6],pch=19,cex=0.5)
 # given features X1, we have the cluster information of the features in dfvi
 # when doing prediction, we can use representation of the clusters to do dimensionality reduction
 
+############ 5. Summary of each cluster - dimension reduction ##############
+X1S=NULL
+for(i in unique(CM1)){
+  idx=(dfv1[,6]==i)
+  X1sub=X1[,idx]
+  if(sum(idx)==1){
+    tmp=X1sub
+  }else{
+    #tmp=rowMeans(X1sub)
+    pca=prcomp(X1sub, retx=TRUE, center=TRUE, scale=TRUE)
+    tmp=pca$x[,1]
+  }
+  X1S=cbind(X1S, tmp)
+}
+
+X2S=NULL
+for(i in unique(CM2)){
+  idx=(dfv2[,6]==i)
+  X1sub=X1[,idx]
+  if(sum(idx)==1){
+    tmp=X1sub
+  }else{
+    #tmp=rowMeans(X1sub)
+    pca=prcomp(X1sub, retx=TRUE, center=TRUE, scale=TRUE)
+    tmp=pca$x[,1]
+  }
+  X2S=cbind(X2S, tmp)
+}
+
+############ 6. Downscaling ##############
+library(glmnet)
+load("../obs_data_mon_avg/monavg_tmmx_1979_2008.RData")
+load("../obs_data_mon_avg/monavg_tmmx_2009_2016.RData")
+
+x1=X1[373:(372+360),]
+x2=X1[(372+360+1):828,]
+
+x1=X1S[373:(372+360),]
+x2=X1S[(372+360+1):828,]
+ilon=500
+ilat=500
+y1=y_train[ilon,ilat,]
+y2=y_test[ilon,ilat,]
 
 
+set.seed(100)
+glmmod1=cv.glmnet(as.matrix(x1), y1, nfolds=10, alpha=1, standardize = FALSE,parallel=F)
+predTest <- predict(glmmod1, as.matrix(x2), s = "lambda.min")
+predTest_train <- predict(glmmod1, as.matrix(x1), s = "lambda.min")
+
+mean((predTest_train-y1)^2)
+mean((predTest-y2)^2)
 
 
 #######################################################################

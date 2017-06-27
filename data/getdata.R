@@ -135,18 +135,33 @@ library(abind)
 # lat: 585
 # day: 12
 # air_temperature: (lat, lon, day)
-x=NULL
-for(i in 1979:2016){
+
+y_train=NULL
+for(i in 1979:2008){
   fileloc=paste0("D:/works/obs_data_mon_avg/monavg_tmmx_",i,".nc")
   nc=open.nc(fileloc) # print.nc(nc)
-  x=abind(x,aperm(var.get.nc(nc, "air_temperature"),c(2,1,3)),along=3)
-  
+  y_train=abind(y_train,aperm(var.get.nc(nc, "air_temperature"),c(2,1,3)),along=3)
 }
+
+y_test=NULL
+for(i in 2009:2016){
+  fileloc=paste0("D:/works/obs_data_mon_avg/monavg_tmmx_",i,".nc")
+  nc=open.nc(fileloc) # print.nc(nc)
+  y_test=abind(y_test,aperm(var.get.nc(nc, "air_temperature"),c(2,1,3)),along=3)
+}
+
 lon=var.get.nc(nc, "lon")
 lat=var.get.nc(nc, "lat")
 lat=rev(lat)
 nlon=length(lon)
 nlat=length(lat)
+
+y_train=y_train[,nlat:1,]
+y_test=y_test[,nlat:1,]
+
+save(lon,lat,nlon,nlat,y_train,file="../obs_data_mon_avg/monavg_tmmx_1979_2008.RData")
+save(lon,lat,nlon,nlat,y_test,file="../obs_data_mon_avg/monavg_tmmx_2009_2016.RData")
+
 
 
 
