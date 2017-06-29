@@ -33,6 +33,10 @@ for(i in 1:p){
 
 save(S1,S2,file="cor_rcd_matrix.RData")
 
+S1=cor(X1[id1,])
+S1hat=doubeltaper(S1,NLON,NLAT,k=NLON/2,l=NLAT/2)
+
+
 ############ 3. Network Analysis of the features ##############
 # thres=5
 # Magic number: (abs(S1)>0.55 ~ S2>0.25373 ~133points
@@ -128,18 +132,22 @@ plot(Net1, layout=layout, vertex.size=map(ec, c(1,20)), vertex.label=NA, edge.ar
 
 ############ 4. Clustering Analysis of the features ##############
 
+D0=1-abs(S1hat)
 D1=1-abs(S1)
 D2=1-S2
 
+C0=hclust(as.dist(D0))
 C1=hclust(as.dist(D1))
 C2=hclust(as.dist(D2))
 
+CM0=cutree(C0, k=500) # clustering member
 CM1=cutree(C1, k=500) # clustering member
 CM2=cutree(C2, k=500) # clustering member
 
 length(unique(CM1))
 length(unique(CM2))
 
+dfv0=cbind(dfv,CM0)
 dfv1=cbind(dfv,CM1)
 dfv2=cbind(dfv,CM2)
 
@@ -154,57 +162,118 @@ points(x=dfv2[,4],y=dfv2[,5],col=dfv2[,6],pch=19,cex=0.5)
 # when doing prediction, we can use representation of the clusters to do dimensionality reduction
 
 ############ 5. Summary of each cluster - dimension reduction ##############
-X1S=NULL
-for(i in unique(CM1)){
-  idx=(dfv1[,6]==i)
-  X1sub=X1[,idx]
-  if(sum(idx)==1){
-    tmp=X1sub
-  }else{
-    #tmp=rowMeans(X1sub)
-    pca=prcomp(X1sub, retx=TRUE, center=TRUE, scale=TRUE)
-    tmp=pca$x[,1]
+
+fscluster=function(X1,dfv,C1,k=500){
+  CM1=cutree(C1, k=k)
+  dfv1=cbind(dfv,CM1)
+  X1S=NULL
+  for(i in unique(CM1)){
+    idx=(dfv1[,6]==i)
+    X1sub=X1[,idx]
+    if(sum(idx)==1){
+      tmp=X1sub
+    }else{
+      tmp=rowMeans(X1sub)
+      #pca=prcomp(X1sub, retx=TRUE, center=TRUE, scale=TRUE)
+      #tmp=pca$x[,1]
+      #kpc=kpca(X1sub)
+      #tmp=kpc@pcv[,1]
+    }
+    X1S=cbind(X1S, tmp)
   }
-  X1S=cbind(X1S, tmp)
+  return(X1S)
 }
 
-X2S=NULL
-for(i in unique(CM2)){
-  idx=(dfv2[,6]==i)
-  X1sub=X1[,idx]
-  if(sum(idx)==1){
-    tmp=X1sub
-  }else{
-    #tmp=rowMeans(X1sub)
-    pca=prcomp(X1sub, retx=TRUE, center=TRUE, scale=TRUE)
-    tmp=pca$x[,1]
-  }
-  X2S=cbind(X2S, tmp)
-}
+K=100
+X0S=fscluster(X1,dfv,C0,K)
+X1S=fscluster(X1,dfv,C1,K)
+X2S=fscluster(X1,dfv,C2,K)
 
+save(X0S,X1S,file="reanalysis_features_clustered.RData")
 ############ 6. Downscaling ##############
 library(glmnet)
+library(e1071)
+library(kernlab)
 load("../obs_data_mon_avg/monavg_tmmx_1979_2008.RData")
 load("../obs_data_mon_avg/monavg_tmmx_2009_2016.RData")
 
-x1=X1[373:(372+360),]
-x2=X1[(372+360+1):828,]
+id1=373:(372+360) # training index
+id2=(372+360+1):828 # testing index
 
-x1=X1S[373:(372+360),]
-x2=X1S[(372+360+1):828,]
-ilon=500
-ilat=500
-y1=y_train[ilon,ilat,]
-y2=y_test[ilon,ilat,]
+iLon=1:nlon
+iLat=1:nlat
+Y1=y_train[iLon,iLat,]
+Y2=y_test[iLon,iLat,]
+
+pred=function(x1,x2,Y1,Y2,iLon,iLat){
+  Y1_pred=Y1
+  Y2_pred=Y2
+  
+  set.seed(100)
+  for(i in 1:length(iLon)){
+    cat("lon",i,"...\n")
+    for(j in 1:length(iLat)){
+      y1=Y1[i,j,]
+      #y2=Y2[i,j,]
+      if(any(is.na(y1))==F){
+        glmmod1=cv.glmnet(x1, y1, nfolds=10, alpha=1, standardize = T,parallel=F)
+        Y1_pred[i,j,]=predict(glmmod1, x1, s = "lambda.min")
+        Y2_pred[i,j,]=predict(glmmod1, x2, s = "lambda.min")
+        #svm_model = svm(x1,y1)
+        #Y1_pred[i,j,]=predict(svm_model, x1)
+        #Y2_pred[i,j,]=predict(svm_model, x2)
+      }
+    }
+  }
+ 
+  return(list(Y1_pred=Y1_pred,Y2_pred=Y2_pred))
+}
+
+RR=pred(X1[id1,],X1[id2,],Y1,Y2,iLon,iLat)
+R0=pred(X0S[id1,],X0S[id2,],Y1,Y2,iLon,iLat)
+R1=pred(X1S[id1,],X1S[id2,],Y1,Y2,iLon,iLat)
+R2=pred(X2S[id1,],X2S[id2,],Y1,Y2,iLon,iLat)
+
+DF=(Y2-R0$Y2_pred)^2-(Y2-R1$Y2_pred)^2
+
+DF=apply((R0$Y1-R0$Y1_pred)^2,c(1,2),mean)-apply((R1$Y1-R1$Y1_pred)^2,c(1,2),mean)
+DF=apply((R0$Y2-R0$Y2_pred)^2,c(1,2),mean)-apply((R1$Y2-R1$Y2_pred)^2,c(1,2),mean)
+
+DF1=apply((Y1-R0$Y1_pred)^2,c(1,2),mean)
+DF2=apply((Y1-R1$Y1_pred)^2,c(1,2),mean)
+
+library("scatterplot3d")
+dfDF1=NULL
+for(i in 1:dim(DF1)[1]){
+  for(j in 1:dim(DF1)[2]){
+    dfDF1=rbind(dfDF1,c(count,i,j,lon[iLon[i]],lat[iLat[j]],(DF1[i,j]>DF2[i,j])+1))
+  }
+}
+
+dfDF2=NULL
+count=0
+for(i in 1:dim(DF2)[1]){
+  for(j in 1:dim(DF2)[2]){
+    count=count+1
+    dfDF2=rbind(dfDF2,c(count,i,j,lon[iLon[i]],lat[iLat[j]],DF2[i,j]))
+  }
+}
+
+scatterplot3d(dfDF1)
+
+map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfDF1[,4],y=dfDF1[,5],col=dfDF1[,6],pch=19,cex=0.01)
+
+image(apply((Y1_pred-Y1)^2,c(1,2),mean))
+image(apply((Y2_pred-Y2)^2,c(1,2),mean))
 
 
-set.seed(100)
-glmmod1=cv.glmnet(as.matrix(x1), y1, nfolds=10, alpha=1, standardize = FALSE,parallel=F)
-predTest <- predict(glmmod1, as.matrix(x2), s = "lambda.min")
-predTest_train <- predict(glmmod1, as.matrix(x1), s = "lambda.min")
-
-mean((predTest_train-y1)^2)
-mean((predTest-y2)^2)
+# set.seed(100)
+# glmmod1=cv.glmnet(as.matrix(x1), y1, nfolds=10, alpha=1, standardize = T,parallel=F)
+# predTest_train <- predict(glmmod1, as.matrix(x1), s = "lambda.min")
+# predTest <- predict(glmmod1, as.matrix(x2), s = "lambda.min")
+# mean((predTest_train-y1)^2)
+# mean((predTest-y2)^2)
 
 
 #######################################################################
