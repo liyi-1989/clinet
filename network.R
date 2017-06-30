@@ -241,12 +241,68 @@ DF=apply((R0$Y2-R0$Y2_pred)^2,c(1,2),mean)-apply((R1$Y2-R1$Y2_pred)^2,c(1,2),mea
 
 DF1=apply((Y1-R0$Y1_pred)^2,c(1,2),mean)
 DF2=apply((Y1-R1$Y1_pred)^2,c(1,2),mean)
+#-----------------------------------------------------------------------------------------
+load("../obs_data_mon_avg/y_test_pred_lasso_0.RData")
+load("../obs_data_mon_avg/y_test_pred_lasso_1.RData")
+# cross-section
+DF1=apply((y_test-y_test_pred_lasso_0)^2,c(1,2),mean)
+DF2=apply((y_test-y_test_pred_lasso_1)^2,c(1,2),mean)
+
+DF1=apply((y_test[,,1:48]-y_test_pred_lasso_0[,,1:48])^2,c(1,2),mean)
+DF2=apply((y_test[,,1:48]-y_test_pred_lasso_1[,,1:48])^2,c(1,2),mean)
+
+# each year
+DF1=apply((y_test-y_test_pred_lasso_0)^2,3,mean,na.rm=T)
+DF2=apply((y_test-y_test_pred_lasso_1)^2,3,mean,na.rm=T)
+# each month
+df1=df2=rep(0,12)
+for(i in 1:12){
+  df1[i]=mean(DF1[(0:3)*12+i])
+  df2[i]=mean(DF2[(0:3)*12+i])
+}
+# each season
+df10=c(mean(df1[c(1,2,12)]),mean(df1[c(3,4,5)]),mean(df1[c(6,7,8)]),mean(df1[c(9,10,11)]))
+df20=c(mean(df2[c(1,2,12)]),mean(df2[c(3,4,5)]),mean(df2[c(6,7,8)]),mean(df2[c(9,10,11)]))
+
+plot(1:96,DF1,col="red",type="l")
+lines(1:96,DF2)
+plot(1:12,df1,col="red",type="l")
+lines(1:12,df2)
+plot(1:4,df10,col="red",type="l")
+lines(1:4,df20)
+#-----------------------------------------------------------------------------------------
+load("../obs_data_mon_avg/y_test_pred_svm_0.RData")
+load("../obs_data_mon_avg/y_test_pred_svm_1.RData")
+# cross-section
+DF1=apply((y_test-y_test_pred_svm_0)^2,c(1,2),mean)
+DF2=apply((y_test-y_test_pred_svm_1)^2,c(1,2),mean)
+# each year
+DF1=apply((y_test-y_test_pred_svm_0)^2,3,mean,na.rm=T)
+DF2=apply((y_test-y_test_pred_svm_1)^2,3,mean,na.rm=T)
+# each month
+df1=df2=rep(0,12)
+for(i in 1:12){
+  df1[i]=mean(DF1[(0:7)*12+i])
+  df2[i]=mean(DF2[(0:7)*12+i])
+}
+# each season
+df10=c(mean(df1[c(1,2,12)]),mean(df1[c(3,4,5)]),mean(df1[c(6,7,8)]),mean(df1[c(9,10,11)]))
+df20=c(mean(df2[c(1,2,12)]),mean(df2[c(3,4,5)]),mean(df2[c(6,7,8)]),mean(df2[c(9,10,11)]))
+
+plot(1:4,df10,col="red",type="l")
+lines(1:4,df20)
+
 
 library("scatterplot3d")
 dfDF1=NULL
+count=0
 for(i in 1:dim(DF1)[1]){
   for(j in 1:dim(DF1)[2]){
-    dfDF1=rbind(dfDF1,c(count,i,j,lon[iLon[i]],lat[iLat[j]],(DF1[i,j]>DF2[i,j])+1))
+    count=count+1
+    if((i%%4==0)&(j%%4==0)){
+      dfDF1=rbind(dfDF1,c(count,lon[iLon[i]],lat[iLat[j]],y_test_pred_lasso_0[i,j,1]))
+    }
+    
   }
 }
 
@@ -255,14 +311,44 @@ count=0
 for(i in 1:dim(DF2)[1]){
   for(j in 1:dim(DF2)[2]){
     count=count+1
-    dfDF2=rbind(dfDF2,c(count,i,j,lon[iLon[i]],lat[iLat[j]],DF2[i,j]))
+    if((i%%4==0)&(j%%4==0)){
+      dfDF2=rbind(dfDF2,c(count,lon[iLon[i]],lat[iLat[j]],y_test_pred_lasso_1[i,j,1]))
+    }
+  }
+}
+
+dfDF0=NULL
+count=0
+for(i in 1:dim(DF2)[1]){
+  for(j in 1:dim(DF2)[2]){
+    count=count+1
+    if((i%%4==0)&(j%%4==0)){
+      dfDF0=rbind(dfDF0,c(count,lon[iLon[i]],lat[iLat[j]],y_test[i,j,1]))
+    }
   }
 }
 
 scatterplot3d(dfDF1)
 
+dfDF1=dfDF1[!is.na(dfDF1[,4]),]
+dfDF2=dfDF2[!is.na(dfDF2[,4]),]
+dfDF0=dfDF0[!is.na(dfDF0[,4]),]
+
+ft=function(x){
+  ifelse(x<0,0,ifelse(x>1,1,x))
+}
+
+par(mfrow=c(2,2))
 map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
-points(x=dfDF1[,4],y=dfDF1[,5],col=dfDF1[,6],pch=19,cex=0.01)
+points(x=dfDF1[,2],y=dfDF1[,3],col=rgb(ft((dfDF1[,4]-min(dfDF1[,4]))/(max(dfDF1[,4])-min(dfDF1[,4]))),0,0),pch=19,cex=0.01)
+
+
+map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfDF2[,2],y=dfDF2[,3],col=rgb(ft((dfDF2[,4]-min(dfDF2[,4]))/(max(dfDF2[,4])-min(dfDF2[,4]))),0,0),pch=19,cex=0.01)
+
+map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfDF0[,2],y=dfDF0[,3],col=rgb((dfDF0[,4]-min(dfDF0[,4]))/(max(dfDF0[,4])-min(dfDF0[,4])),0,0),pch=19,cex=0.01)
+
 
 image(apply((Y1_pred-Y1)^2,c(1,2),mean))
 image(apply((Y2_pred-Y2)^2,c(1,2),mean))
