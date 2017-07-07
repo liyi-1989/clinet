@@ -1,3 +1,14 @@
+library(rcd)
+library(igraph)
+library("maps")
+library("geosphere")
+source('utils_network.R')
+library(scatterplot3d)
+library(ggplot2)
+library(glmnet)
+library(e1071)
+library(kernlab)
+
 ############ 1. Load GCM Data ##############
 # 3D wide to 2D long
 load("./data/air_mon_mean_mon_mean_removed_sub.RData")
@@ -7,10 +18,10 @@ count=0
 for(i in 1:NLON){
   for(j in 1:NLAT){
     count=count+1
-    dfv=rbind(dfv,c(count,i,j,LON[i],LAT[j]))
+    dfv=rbind(dfv,c(count,i,j,LON[i],LAT[j],X[i,j,372+360+1]))
   }
 }
-colnames(dfv)=c("vertex","idlon","idlat","lon","lat")
+colnames(dfv)=c("vertex","idlon","idlat","lon","lat","x")
 p=dim(dfv)[1]
 X1=NULL # Long Data (2D)
 for(i in 1:NLON){
@@ -20,7 +31,7 @@ for(i in 1:NLON){
 } # X1 is the final data matrix to work on. Vertex data frame is in dfv. Edge data frame need analysis with correlation
 
 ############ 2. Correlation Matrix ##############
-library(rcd)
+
 S1=cor(X1)
 S2=S1
 
@@ -44,10 +55,7 @@ S1hat=doubeltaper(S1,NLON,NLAT,k=NLON/2,l=NLAT/2)
 # Magic number: (abs(S1)>0.597 ~ S2>0.284 ~10points
 # Magic number: (abs(S1)>0.4219 ~ S2>0.19838 ~1000points
 load("./data/cor_rcd_matrix.RData")
-library(igraph)
-library("maps")
-library("geosphere")
-source('utils_network.R')
+
 ###### 3.1 Define the local nearest neighbour ######
 thres=5
 S0=nn_ind(NLON,NLAT,round(thres*NLON/NLAT),thres) # nearest neighbour indicator matrix
@@ -191,20 +199,19 @@ X2S=fscluster(X1,dfv,C2,K)
 
 save(X0S,X1S,file="reanalysis_features_clustered.RData")
 ############ 6. Downscaling ##############
-library(glmnet)
-library(e1071)
-library(kernlab)
 load("../obs_data_mon_avg/monavg_tmmx_1979_2008.RData")
 load("../obs_data_mon_avg/monavg_tmmx_2009_2016.RData")
 
+# GCM has more time points: choose overlap with observation (match X, Y's n)
 id1=373:(372+360) # training index
 id2=(372+360+1):828 # testing index
-
+# select (subset of) observations to do downscaling individually 
 iLon=1:nlon
 iLat=1:nlat
 Y1=y_train[iLon,iLat,]
 Y2=y_test[iLon,iLat,]
 
+############ 6.1 Prediction with Lasso (or SVM) ##############
 pred=function(x1,x2,Y1,Y2,iLon,iLat){
   Y1_pred=Y1
   Y2_pred=Y2
@@ -229,28 +236,24 @@ pred=function(x1,x2,Y1,Y2,iLon,iLat){
   return(list(Y1_pred=Y1_pred,Y2_pred=Y2_pred))
 }
 
-RR=pred(X1[id1,],X1[id2,],Y1,Y2,iLon,iLat)
-R0=pred(X0S[id1,],X0S[id2,],Y1,Y2,iLon,iLat)
-R1=pred(X1S[id1,],X1S[id2,],Y1,Y2,iLon,iLat)
-R2=pred(X2S[id1,],X2S[id2,],Y1,Y2,iLon,iLat)
+## sample code for running prediction 
+## slow to run all, use cluster (in sub.R) parallel
+## results for comparing lasso for S1 (cov) and S0 (tapered cov) is saved in y_test_pred_lasso_[01].RData
+# RR=pred(X1[id1,],X1[id2,],Y1,Y2,iLon,iLat)
+# R0=pred(X0S[id1,],X0S[id2,],Y1,Y2,iLon,iLat)
+# R1=pred(X1S[id1,],X1S[id2,],Y1,Y2,iLon,iLat)
+# R2=pred(X2S[id1,],X2S[id2,],Y1,Y2,iLon,iLat)
 
-DF=(Y2-R0$Y2_pred)^2-(Y2-R1$Y2_pred)^2
+# DF=(Y2-R0$Y2_pred)^2-(Y2-R1$Y2_pred)^2
+# DF=apply((Y1-R0$Y1_pred)^2,c(1,2),mean)-apply((Y1-R1$Y1_pred)^2,c(1,2),mean)
+# DF=apply((Y2-R0$Y2_pred)^2,c(1,2),mean)-apply((Y2-R1$Y2_pred)^2,c(1,2),mean)
+# DF1=apply((Y1-R0$Y1_pred)^2,c(1,2),mean)
+# DF2=apply((Y1-R1$Y1_pred)^2,c(1,2),mean)
 
-DF=apply((R0$Y1-R0$Y1_pred)^2,c(1,2),mean)-apply((R1$Y1-R1$Y1_pred)^2,c(1,2),mean)
-DF=apply((R0$Y2-R0$Y2_pred)^2,c(1,2),mean)-apply((R1$Y2-R1$Y2_pred)^2,c(1,2),mean)
-
-DF1=apply((Y1-R0$Y1_pred)^2,c(1,2),mean)
-DF2=apply((Y1-R1$Y1_pred)^2,c(1,2),mean)
-#-----------------------------------------------------------------------------------------
+############ 6.2 Load Lasso Prediction Results (or svm) ##############
 load("../obs_data_mon_avg/y_test_pred_lasso_0.RData")
 load("../obs_data_mon_avg/y_test_pred_lasso_1.RData")
-# cross-section
-DF1=apply((y_test-y_test_pred_lasso_0)^2,c(1,2),mean)
-DF2=apply((y_test-y_test_pred_lasso_1)^2,c(1,2),mean)
-
-DF1=apply((y_test[,,1:48]-y_test_pred_lasso_0[,,1:48])^2,c(1,2),mean)
-DF2=apply((y_test[,,1:48]-y_test_pred_lasso_1[,,1:48])^2,c(1,2),mean)
-
+# ============= 6.2.1 comparing times =============
 # each year
 DF1=apply((y_test-y_test_pred_lasso_0)^2,3,mean,na.rm=T)
 DF2=apply((y_test-y_test_pred_lasso_1)^2,3,mean,na.rm=T)
@@ -264,36 +267,52 @@ for(i in 1:12){
 df10=c(mean(df1[c(1,2,12)]),mean(df1[c(3,4,5)]),mean(df1[c(6,7,8)]),mean(df1[c(9,10,11)]))
 df20=c(mean(df2[c(1,2,12)]),mean(df2[c(3,4,5)]),mean(df2[c(6,7,8)]),mean(df2[c(9,10,11)]))
 
-plot(1:96,DF1,col="red",type="l")
+plot(1:96,DF1,col="red",type="l") # plot year (avg mse)
 lines(1:96,DF2)
-plot(1:12,df1,col="red",type="l")
+plot(1:12,df1,col="red",type="l") # plot month
 lines(1:12,df2)
-plot(1:4,df10,col="red",type="l")
+plot(1:4,df10,col="red",type="l") # plot season
 lines(1:4,df20)
-#-----------------------------------------------------------------------------------------
-load("../obs_data_mon_avg/y_test_pred_svm_0.RData")
-load("../obs_data_mon_avg/y_test_pred_svm_1.RData")
+
+# bar plot of season mse average
+df=data.frame(x=c("DJF","MAM","JJA","SON","DJF","MAM","JJA","SON"),y=c(df10,df20),type=c(rep("Double Taper",4),rep("Sample",4)))
+
+ggplot(df, aes(x=x, y=y, fill=type)) + 
+  geom_bar(stat="identity", position=position_dodge())+ 
+  xlab("Season")+ylab("Testing MSE")+ggtitle("Prediction Results")+theme(plot.title = element_text(hjust = 0.5))+
+  annotate("text", x=3, y=250, label= "Overall MSE (Test)",fontface =2)+
+  annotate("text", x=3, y=230, label= "Double Taper: 82.46\n Sample Cov: 117.06",fontface =1)
+
+# #-----------------------------------------------------------------------------------------
+# load("../obs_data_mon_avg/y_test_pred_svm_0.RData")
+# load("../obs_data_mon_avg/y_test_pred_svm_1.RData")
+# # cross-section
+# DF1=apply((y_test-y_test_pred_svm_0)^2,c(1,2),mean)
+# DF2=apply((y_test-y_test_pred_svm_1)^2,c(1,2),mean)
+# # each year
+# DF1=apply((y_test-y_test_pred_svm_0)^2,3,mean,na.rm=T)
+# DF2=apply((y_test-y_test_pred_svm_1)^2,3,mean,na.rm=T)
+# # each month
+# df1=df2=rep(0,12)
+# for(i in 1:12){
+#   df1[i]=mean(DF1[(0:7)*12+i])
+#   df2[i]=mean(DF2[(0:7)*12+i])
+# }
+# # each season
+# df10=c(mean(df1[c(1,2,12)]),mean(df1[c(3,4,5)]),mean(df1[c(6,7,8)]),mean(df1[c(9,10,11)]))
+# df20=c(mean(df2[c(1,2,12)]),mean(df2[c(3,4,5)]),mean(df2[c(6,7,8)]),mean(df2[c(9,10,11)]))
+# 
+# plot(1:4,df10,col="red",type="l")
+# lines(1:4,df20)
+
+# ============= 6.2.2 comparing cross-sections =============
 # cross-section
-DF1=apply((y_test-y_test_pred_svm_0)^2,c(1,2),mean)
-DF2=apply((y_test-y_test_pred_svm_1)^2,c(1,2),mean)
-# each year
-DF1=apply((y_test-y_test_pred_svm_0)^2,3,mean,na.rm=T)
-DF2=apply((y_test-y_test_pred_svm_1)^2,3,mean,na.rm=T)
-# each month
-df1=df2=rep(0,12)
-for(i in 1:12){
-  df1[i]=mean(DF1[(0:7)*12+i])
-  df2[i]=mean(DF2[(0:7)*12+i])
-}
-# each season
-df10=c(mean(df1[c(1,2,12)]),mean(df1[c(3,4,5)]),mean(df1[c(6,7,8)]),mean(df1[c(9,10,11)]))
-df20=c(mean(df2[c(1,2,12)]),mean(df2[c(3,4,5)]),mean(df2[c(6,7,8)]),mean(df2[c(9,10,11)]))
-
-plot(1:4,df10,col="red",type="l")
-lines(1:4,df20)
+#DF1=apply((y_test-y_test_pred_lasso_0)^2,c(1,2),mean)
+#DF2=apply((y_test-y_test_pred_lasso_1)^2,c(1,2),mean)
+DF1=apply((y_test[,,1:48]-y_test_pred_lasso_0[,,1:48])^2,c(1,2),mean)
+DF2=apply((y_test[,,1:48]-y_test_pred_lasso_1[,,1:48])^2,c(1,2),mean)
 
 
-library("scatterplot3d")
 dfDF1=NULL
 count=0
 for(i in 1:dim(DF1)[1]){
@@ -328,7 +347,7 @@ for(i in 1:dim(DF2)[1]){
   }
 }
 
-scatterplot3d(dfDF1)
+#scatterplot3d(dfDF1)
 
 dfDF1=dfDF1[!is.na(dfDF1[,4]),]
 dfDF2=dfDF2[!is.na(dfDF2[,4]),]
@@ -339,30 +358,28 @@ ft=function(x){
 }
 
 par(mfrow=c(2,2))
-map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
-points(x=dfDF1[,2],y=dfDF1[,3],col=rgb(ft((dfDF1[,4]-min(dfDF1[,4]))/(max(dfDF1[,4])-min(dfDF1[,4]))),0,0),pch=19,cex=0.01)
 
-
-map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
-points(x=dfDF2[,2],y=dfDF2[,3],col=rgb(ft((dfDF2[,4]-min(dfDF2[,4]))/(max(dfDF2[,4])-min(dfDF2[,4]))),0,0),pch=19,cex=0.01)
+map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfv[,4],y=dfv[,5],col=rgb((dfv[,6]-min(dfv[,6]))/(max(dfv[,6])-min(dfv[,6])),0,0),pch=19,cex=0.3,main="Reanalysis")
+title("Renalysis")
 
 map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
 points(x=dfDF0[,2],y=dfDF0[,3],col=rgb((dfDF0[,4]-min(dfDF0[,4]))/(max(dfDF0[,4])-min(dfDF0[,4])),0,0),pch=19,cex=0.01)
+title("Observation")
+
+map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfDF1[,2],y=dfDF1[,3],col=rgb(ft((dfDF1[,4]-min(dfDF1[,4]))/(max(dfDF1[,4])-min(dfDF1[,4]))),0,0),pch=19,cex=0.01)
+title("Prediction (Sample Cov.)")
+
+map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
+points(x=dfDF2[,2],y=dfDF2[,3],col=rgb(ft((dfDF2[,4]-min(dfDF2[,4]))/(max(dfDF2[,4])-min(dfDF2[,4]))),0,0),pch=19,cex=0.01)
+title("Prediction (Double Tapered Cov.)")
+
+image(DF1)
+image(DF2)
 
 
-image(apply((Y1_pred-Y1)^2,c(1,2),mean))
-image(apply((Y2_pred-Y2)^2,c(1,2),mean))
-
-
-# set.seed(100)
-# glmmod1=cv.glmnet(as.matrix(x1), y1, nfolds=10, alpha=1, standardize = T,parallel=F)
-# predTest_train <- predict(glmmod1, as.matrix(x1), s = "lambda.min")
-# predTest <- predict(glmmod1, as.matrix(x2), s = "lambda.min")
-# mean((predTest_train-y1)^2)
-# mean((predTest-y2)^2)
-
-
-#######################################################################
+################### 99. Useless code #######################
 
 source("http://michael.hahsler.net/SMU/ScientificCompR/code/map.R")
 
