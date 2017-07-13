@@ -37,4 +37,50 @@ plot_arc=function(dfv,dfe){
   }
 }
 
+# plot the map data (lon*lat, lon, lat)
+plot_lonlat=function(X,lon,lat,vcol="value",region="world",cap=""){
+  # Input:
+  # X: a map lon*lat, 2d array
+  # lon, lat: 1d array corresponds to X
+  # Output:
+  # dfv: vertex dataframe:
+  #       vertex: vertex id
+  #       lon,lat: lon,lat for each point
+  #       value: value for each point
+  nlon=length(lon)
+  nlat=length(lat)
+  
+  dfv=NULL
+  count=0
+  for(i in 1:nlon){
+    for(j in 1:nlat){
+      count=count+1
+      dfv=rbind(dfv,c(count,i,j,lon[i],lat[j],X[i,j]))
+    }
+  }
+  colnames(dfv)=c("vertex","idlon","idlat","lon","lat",vcol)
+  plot_lonlat_df(dfv,vcol=vcol,region=region,cap=cap)
+  return(dfv)
+}
+
+# plot vertex dataframe (vertex,lon,lat,value)
+plot_lonlat_df=function(dfv,vcol="value",region="world",cap=""){
+  # Input:
+  # dfv: vertex dataframe, with lon,lat,vcol
+  # vcol: column name for the vertex value column
+  # region: world/usa, etc
+  # cap: title of the plot
+  # Output: 
+  # just plot points on map
+  
+  x = dfv[,vcol]
+  vcolor = (x-min(x))/(max(x)-min(x))
+  map(region,col="skyblue",border="gray10",fill=T,bg="gray30")
+  points(x=dfv[,"lon"],y=dfv[,"lat"],col=rgb(vcolor,0,0),pch=19,cex=0.3,main="Reanalysis")
+  title(cap)
+}
+
+
+
+
 

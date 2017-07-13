@@ -347,6 +347,8 @@ for(i in 1:dim(DF2)[1]){
   }
 }
 
+colnames(dfDF0)=c("vertex","lon","lat","value")
+plot_lonlat_df(dfDF0,region="usa")
 #scatterplot3d(dfDF1)
 
 dfDF1=dfDF1[!is.na(dfDF1[,4]),]
