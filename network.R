@@ -161,10 +161,10 @@ dfv2=cbind(dfv,CM2)
 
 par(mfrow=c(2,1))
 map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
-points(x=dfv1[,4],y=dfv1[,5],col=dfv1[,6],pch=19,cex=0.5)
+points(x=dfv1[,4],y=dfv1[,5],col=dfv1[,7],pch=19,cex=0.5)
 
 map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
-points(x=dfv2[,4],y=dfv2[,5],col=dfv2[,6],pch=19,cex=0.5)
+points(x=dfv2[,4],y=dfv2[,5],col=dfv2[,7],pch=19,cex=0.5)
 
 # given features X1, we have the cluster information of the features in dfvi
 # when doing prediction, we can use representation of the clusters to do dimensionality reduction
@@ -197,7 +197,7 @@ X0S=fscluster(X1,dfv,C0,K)
 X1S=fscluster(X1,dfv,C1,K)
 X2S=fscluster(X1,dfv,C2,K)
 
-save(X0S,X1S,file="reanalysis_features_clustered.RData")
+#save(X0S,X1S,file="reanalysis_features_clustered.RData")
 ############ 6. Downscaling ##############
 load("../obs_data_mon_avg/monavg_tmmx_1979_2008.RData")
 load("../obs_data_mon_avg/monavg_tmmx_2009_2016.RData")
@@ -208,8 +208,8 @@ id2=(372+360+1):828 # testing index
 # select (subset of) observations to do downscaling individually 
 iLon=1:nlon
 iLat=1:nlat
-Y1=y_train[iLon,iLat,]
-Y2=y_test[iLon,iLat,]
+#Y1=y_train[iLon,iLat,]
+#Y2=y_test[iLon,iLat,]
 
 ############ 6.1 Prediction with Lasso (or SVM) ##############
 pred=function(x1,x2,Y1,Y2,iLon,iLat){
@@ -375,9 +375,12 @@ map("usa",col="skyblue",border="gray10",fill=T,bg="gray30")
 points(x=dfDF2[,2],y=dfDF2[,3],col=rgb(ft((dfDF2[,4]-min(dfDF2[,4]))/(max(dfDF2[,4])-min(dfDF2[,4]))),0,0),pch=19,cex=0.01)
 title("Prediction (Double Tapered Cov.)")
 
-image(DF1)
+image(DF1,axes = 0)
 image(DF2)
 
+png("test.png")
+image(y_test[,,1],axes = 0)
+dev.off()
 
 ################### 99. Useless code #######################
 
