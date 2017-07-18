@@ -64,7 +64,7 @@ plot_lonlat=function(X,lon,lat,vcol="value",region="world",cap=""){
 }
 
 # plot vertex dataframe (vertex,lon,lat,value)
-plot_lonlat_df=function(dfv,vcol="value",region="world",cap=""){
+plot_lonlat_df=function(dfv,vcol="value",region="world",cap="",CEX=0.3){
   # Input:
   # dfv: vertex dataframe, with lon,lat,vcol
   # vcol: column name for the vertex value column
@@ -75,8 +75,13 @@ plot_lonlat_df=function(dfv,vcol="value",region="world",cap=""){
   
   x = dfv[,vcol]
   vcolor = (x-min(x))/(max(x)-min(x))
+  vred=(vcolor>0.5)*2*(vcolor-0.4)/1.2
+  vblue=(vcolor<=0.5)*2*(0.6-vcolor)/1.2
   map(region,col="skyblue",border="gray10",fill=T,bg="gray30")
-  points(x=dfv[,"lon"],y=dfv[,"lat"],col=rgb(vcolor,0,0),pch=19,cex=0.3,main="Reanalysis")
+  points(x=dfv[,"lon"],y=dfv[,"lat"],col=rgb(vcolor,0,0),pch=15,cex=CEX,main="Reanalysis")
+  if(region=="world"){
+    plot(wrld_simpl,add=T)
+  }
   title(cap)
 }
 

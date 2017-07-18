@@ -8,7 +8,8 @@ library(ggplot2)
 library(glmnet)
 library(e1071)
 library(kernlab)
-
+library(maptools)
+data(wrld_simpl)
 ############ 1. Load GCM Data ##############
 # 3D wide to 2D long
 load("./data/air_mon_mean_mon_mean_removed_sub.RData")
@@ -29,7 +30,7 @@ for(i in 1:NLON){
     X1=cbind(X1,X[i,j,])
   }
 } # X1 is the final data matrix to work on. Vertex data frame is in dfv. Edge data frame need analysis with correlation
-
+plot_lonlat_df(dfv,vcol="x",region="world",CEX=1)
 ############ 2. Correlation Matrix ##############
 
 S1=cor(X1)
@@ -55,6 +56,12 @@ S1hat=doubeltaper(S1,NLON,NLAT,k=NLON/2,l=NLAT/2)
 # Magic number: (abs(S1)>0.597 ~ S2>0.284 ~10points
 # Magic number: (abs(S1)>0.4219 ~ S2>0.19838 ~1000points
 load("./data/cor_rcd_matrix.RData")
+par(mfrow=c(2,2))
+plot(density(abs(S1)),type="l")
+plot(density(S2),col="red",xlim=c(0,1))
+# Degree Distribution 
+plot(density(degree(Net1)))
+plot(density(degree(Net2)),col="red")
 
 ###### 3.1 Define the local nearest neighbour ######
 thres=5
