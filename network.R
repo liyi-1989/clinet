@@ -23,6 +23,7 @@ for(i in 1:NLON){
   }
 }
 colnames(dfv)=c("vertex","idlon","idlat","lon","lat","x")
+dfv=data.frame(dfv)
 p=dim(dfv)[1]
 X1=NULL # Long Data (2D)
 for(i in 1:NLON){
@@ -31,6 +32,9 @@ for(i in 1:NLON){
   }
 } # X1 is the final data matrix to work on. Vertex data frame is in dfv. Edge data frame need analysis with correlation
 plot_lonlat_df(dfv,vcol="x",region="world",CEX=1)
+par(mfrow=c(2,1))
+plot_lonlat_df(dfv,vcol="B1",region="world",CEX=1)
+plot_lonlat_df(dfv,vcol="B2",region="world",CEX=1)
 ############ 2. Correlation Matrix ##############
 
 S1=cor(X1)
@@ -128,6 +132,10 @@ EB2=edge.betweenness(Net2)
 
 plot(density(EB1))
 lines(density(EB2),col="red")
+
+dfv["B1"]=B1
+dfv["B2"]=B2
+
 
 # Community
 EBC1 = edge.betweenness.community(Net1)

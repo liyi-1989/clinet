@@ -78,7 +78,7 @@ plot_lonlat_df=function(dfv,vcol="value",region="world",cap="",CEX=0.3){
   vred=(vcolor>0.5)*2*(vcolor-0.4)/1.2
   vblue=(vcolor<=0.5)*2*(0.6-vcolor)/1.2
   map(region,col="skyblue",border="gray10",fill=T,bg="gray30")
-  points(x=dfv[,"lon"],y=dfv[,"lat"],col=rgb(vcolor,0,0),pch=15,cex=CEX,main="Reanalysis")
+  points(x=dfv[,"lon"],y=dfv[,"lat"],col=rgb(vcolor,0,1,alpha = 0.9),pch=15,cex=CEX,main="Reanalysis")
   if(region=="world"){
     plot(wrld_simpl,add=T)
   }
