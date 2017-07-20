@@ -60,12 +60,70 @@ S1hat=doubeltaper(S1,NLON,NLAT,k=NLON/2,l=NLAT/2)
 # Magic number: (abs(S1)>0.597 ~ S2>0.284 ~10points
 # Magic number: (abs(S1)>0.4219 ~ S2>0.19838 ~1000points
 load("./data/cor_rcd_matrix.RData")
+
 par(mfrow=c(2,2))
 plot(density(abs(S1)),type="l")
 plot(density(S2),col="red",xlim=c(0,1))
 # Degree Distribution 
 plot(density(degree(Net1)))
 plot(density(degree(Net2)),col="red")
+
+###### 3.0 Network Analysis without teleconnection ######
+
+Q1=quantile(abs(S1),0.995)
+Q2=quantile(S2,0.995)
+NET1=graph_from_adjacency_matrix((abs(S1)>Q1),mode = "undirected")
+NET2=graph_from_adjacency_matrix((S2>Q2),mode = "undirected")
+
+# Degree Distribution 
+plot(density(degree(NET1)),col="blue",main="Degree Distribution")
+lines(density(degree(NET2)),col="red")
+legend("topright",c("cor","RCD"),col=c("blue","red"),lty=c(1,1))
+# Degree
+D1=degree(NET1)
+D2=degree(NET2)
+dfv[,"NET_D1"]=D1
+dfv[,"NET_D2"]=D2
+plot_lonlat_df(dfv,vcol="NET_D1",region="world",CEX=1,cap="Degree of cor")
+plot_lonlat_df(dfv,vcol="NET_D2",region="world",CEX=1,cap="Degree of RCD")
+# Betweeness 
+B1=betweenness(NET1)
+B2=betweenness(NET2)
+dfv[,"NET_B1"]=B1
+dfv[,"NET_B2"]=B2
+par(mfrow=c(1,1))
+plot_lonlat_df(dfv,vcol="NET_B1",region="world",CEX=1,cap="Betweenness of cor")
+plot_lonlat_df(dfv,vcol="NET_B2",region="world",CEX=1,cap="Betweenness of RCD")
+# Local Clustering
+CL1=transitivity(NET1,type="local") # global: 0.8182939
+CL2=transitivity(NET2,type="local") # global: 0.8200309
+dfv[,"NET_CL1"]=CL1
+dfv[,"NET_CL2"]=CL2
+plot_lonlat_df(dfv,vcol="NET_CL1",region="world",CEX=1,cap="Local Clustering of cor")
+plot_lonlat_df(dfv,vcol="NET_CL2",region="world",CEX=1,cap="Local Clustering of RCD")
+# community detection
+D1=1-abs(S1)
+D2=1-S2
+
+C1=hclust(as.dist(D1))
+C2=hclust(as.dist(D2))
+
+CM1=cutree(C1, k=5) # clustering member
+CM2=cutree(C2, k=5) # clustering member
+
+dfv[,"NET_CM1"]=CM1
+dfv[,"NET_CM2"]=CM2
+
+par(mfrow=c(1,1))
+map("world",col="skyblue",border="gray10",fill=T,bg="white")
+points(x=dfv[,4],y=dfv[,5],col=dfv[,"NET_CM1"],pch=19,cex=0.5)
+plot(wrld_simpl,add=T)
+title("Community of cor")
+
+map("world",col="skyblue",border="gray10",fill=T,bg="white")
+points(x=dfv[,4],y=dfv[,5],col=dfv[,"NET_CM2"],pch=19,cex=0.5)
+plot(wrld_simpl,add=T)
+title("Community of RCD")
 
 ###### 3.1 Define the local nearest neighbour ######
 thres=5
@@ -82,20 +140,12 @@ dfe2=as_edgelist(net2)
 ###### 3.3 Visualization ######
 # plot as network
 par(mfrow=c(1,2))
-plot_circle(net1)
-plot_circle(net2)
+plot_circle(net1,cap="cor")
+plot_circle(net2,cap="RCD")
 # plot on map
-plot_arc(dfv,dfe1)
-plot_arc(dfv,dfe2)
+plot_arc(dfv,dfe1,cap="cor")
+plot_arc(dfv,dfe2,cap="RCD")
 
-png("cor.png")
-par(mfrow=c(1,1))
-plot_arc(dfv,dfe1)
-dev.off()
-
-png("rcd.png")
-plot_arc(dfv,dfe2)
-dev.off()
 
 #----------------------
 plot(X1[,232],X1[,778])
@@ -103,10 +153,16 @@ plot(X1[,232],X1[,778])
 
 plot(X1[,805],X1[,2467])
 
-plot(X1[,859],X1[,1518])
-plot(X[24,31,],X[43,6,])
+plot(X1[,859],X1[,1518]) #lon -65 lat 60 Torngat Mountains National Park (Quebec, CA)
+plot(X[24,31,],X[43,6,]) # lon 30 lat -65 Antarctic Ocean
 plot(X1[,859],X1[,1554])
 
+plot(X1[,859],X1[,1518],col=rgb(1,0.5,0,alpha=0.5),xlab="Torngat Mountains National Park (North Quebec, CA)",
+     ylab="Antarctic Ocean",pch=19,main="Monthly Mean Air Temperature")
+rcd(X1[,859],X1[,1518],method="kde")
+plot(X[which(LON==-65),which(LAT==60),],X[which(LON==30),which(LAT==-65),])
+plot(X[47,61,],X[85,11,],col=rgb(1,0.5,0.5,alpha=0.5),xlab="Torngat Mountains National Park (North Quebec, CA)",
+     ylab="Antarctic Ocean",pch=19,main="Monthly Mean Air Temperature (Raw)")
 
 plot(X1[,805],X1[,2431])
 plot(X[23,13,],X[68,19,])
@@ -130,8 +186,8 @@ EB1=edge.betweenness(Net1)
 B2=betweenness(Net2)
 EB2=edge.betweenness(Net2)
 
-plot(density(EB1))
-lines(density(EB2),col="red")
+plot(density(B1))
+lines(density(B2),col="red")
 
 dfv["B1"]=B1
 dfv["B2"]=B2

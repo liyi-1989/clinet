@@ -20,21 +20,23 @@ nn_ind=function(NLON,NLAT,t1,t2){
   return(S0)
 }
 
-plot_circle=function(net1){
+plot_circle=function(net1,cap=""){
   layout=layout.circle(net1)
   plot(net1, layout=layout, vertex.size=0.1,vertex.label=NA, vertex.frame.color="orange",vertex.color="orange",
-       edge.arrow.size=0,edge.color=rgb(0,0.5,0,alpha = 0.1))
+       edge.arrow.size=0,edge.color=rgb(0,0.5,0,alpha = 0.1),main=cap)
 }
 
-plot_arc=function(dfv,dfe){
-  map("world",col="skyblue",border="gray10",fill=T,bg="gray30")
+plot_arc=function(dfv,dfe,cap=""){
+  map("world",col="skyblue",border="gray10",fill=T,bg="white")
   points(x=dfv[unique(c(dfe[,1],dfe[,2])),4],y=dfv[unique(c(dfe[,1],dfe[,2])),5],col="orange",pch=19)
   for(i in 1:nrow(dfe)){
     node1=dfv[dfv[,1]==dfe[i,1],]
     node2=dfv[dfv[,1]==dfe[i,2],]
-    arc=gcIntermediate(c(node1[4],node1[5]),c(node2[4],node2[5]),n=1000,addStartEnd = T)
-    lines(arc,col="yellow")
+    #arc=gcIntermediate(c(node1[4],node1[5]),c(node2[4],node2[5]),n=100,addStartEnd = T)
+    arc=gcIntermediate(as.numeric(c(node1[4],node1[5])),as.numeric(c(node2[4],node2[5])))
+    lines(arc,col="red")
   }
+  title(cap)
 }
 
 # plot the map data (lon*lat, lon, lat)
@@ -77,7 +79,7 @@ plot_lonlat_df=function(dfv,vcol="value",region="world",cap="",CEX=0.3){
   vcolor = (x-min(x))/(max(x)-min(x))
   vred=(vcolor>0.5)*2*(vcolor-0.4)/1.2
   vblue=(vcolor<=0.5)*2*(0.6-vcolor)/1.2
-  map(region,col="skyblue",border="gray10",fill=T,bg="gray30")
+  map(region,col="skyblue",border="gray10",fill=T,bg="white")
   points(x=dfv[,"lon"],y=dfv[,"lat"],col=rgb(vcolor,0,1,alpha = 0.9),pch=15,cex=CEX,main="Reanalysis")
   if(region=="world"){
     plot(wrld_simpl,add=T)
